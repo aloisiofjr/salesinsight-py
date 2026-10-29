@@ -550,3 +550,135 @@ def exportar_resultados(metricas, clientes, estatisticas, pasta=PASTA_OUTPUTS):
         conferencia = json.load(f)
     print(f"\n[OK] Resultados exportados em '{pasta}/'.")
     print(f"JSON gravado e lido: {conferencia}")
+
+
+# ---------------------------------------------------------------------------
+# Classe AnalisadorDeVendas - organiza todo o fluxo em uma classe
+# ---------------------------------------------------------------------------
+class AnalisadorDeVendas:
+    """Encapsula o fluxo de carga, limpeza, analise e visualizacao de vendas.
+
+    A classe atua como camada de orquestracao sobre as funcoes RF01-RF09:
+    cada metodo delega para a funcao correspondente e guarda o resultado
+    em atributos de instancia, permitindo que as etapas seguintes reutilizem
+    o estado sem precisar repassar parametros manualmente.
+
+    Attributes:
+        df_bruto (pandas.DataFrame): dataset recem carregado, sem tratamento.
+        df (pandas.DataFrame): dataset tratado e com colunas derivadas.
+        relatorio_limpeza (dict): contagens produzidas por tratar_dados().
+        metricas (dict[str, pandas.DataFrame]): saida de calcular_metricas().
+        clientes (pandas.DataFrame): saida de segmentar_clientes().
+        estatisticas (dict): estatisticas gerais do dataset tratado.
+    """
+
+    def __init__(self, pasta_graficos=PASTA_GRAFICOS):
+        self.pasta_graficos = pasta_graficos
+        self.df_bruto = None
+        self.df = None
+        self.relatorio_limpeza = None
+        self.metricas = None
+        self.clientes = None
+        self.estatisticas = None
+
+    def carregar(self, caminho_csv):
+        """Carrega o dataset bruto de vendas a partir de um arquivo CSV.
+
+        Args:
+            caminho_csv (str): caminho do arquivo CSV de vendas.
+
+        Returns:
+            pandas.DataFrame: dataset bruto carregado.
+        """
+        self.df_bruto = pd.read_csv(caminho_csv)
+        return self.df_bruto
+
+    def transformar(self):
+        """Limpa os dados, cria colunas derivadas e aplica transformacoes extras.
+
+        Alem de tratar_dados() e criar_colunas_derivadas(), demonstra o uso
+        da funcao de ordem superior processar_coluna() com duas funcoes
+        lambda em contextos distintos (RF08).
+
+        Returns:
+            pandas.DataFrame: dataset tratado e enriquecido (self.df).
+        """
+        df_limpo, relatorio = tratar_dados(self.df_bruto)
+        df_limpo = criar_colunas_derivadas(df_limpo)
+
+        # uso da funcao de ordem superior com lambdas em contextos distintos
+        df_limpo = processar_coluna(
+            df_limpo, "receita_total",
+            lambda x: round(x / 1000, 2),
+            nome_saida="receita_em_milhares",
+        )
+        df_limpo = processar_coluna(
+            df_limpo, "quantidade",
+            lambda q: "Alto Volume" if q > 5 else "Baixo Volume",
+            nome_saida="perfil_volume",
+        )
+
+        self.df = df_limpo
+        self.relatorio_limpeza = relatorio
+        return self.df
+
+    def analisar(self):
+        """Calcula as metricas agregadas e a segmentacao de clientes.
+
+        Returns:
+            tuple[dict, pandas.DataFrame]: (self.metricas, self.clientes).
+        """
+        self.metricas = calcular_metricas(self.df)
+        self.clientes = segmentar_clientes(self.df)
+        self.estatisticas = {
+            "receita_total": self.df["receita_total"].sum(),
+            "ticket_medio": self.df["receita_total"].mean(),
+            "quantidade_total": self.df["quantidade"].sum(),
+            "numero_vendas": len(self.df),
+        }
+        return self.metricas, self.clientes
+
+    def visualizar(self):
+        """Gera e exporta as quatro figuras exigidas pelo projeto (RF07)."""
+        gerar_graficos(self.df, self.metricas, self.pasta_graficos)
+
+    def resumo(self):
+        """Exporta os resultados finais em CSV e JSON (RF09)."""
+        exportar_resultados(self.metricas, self.clientes, self.estatisticas)
+
+
+# ---------------------------------------------------------------------------
+# RF10 - Executar o Fluxo Completo (Ponto de Entrada)
+# ---------------------------------------------------------------------------
+def main():
+    """Executa o fluxo completo do SalesInsight PY, de ponta a ponta.
+
+    Garante a existencia do dataset, carrega e inspeciona os dados brutos
+    e, em seguida, delega a limpeza, a analise, a visualizacao e a
+    exportacao de resultados a instancia de AnalisadorDeVendas, respeitando
+    a ordem exigida pelo enunciado: toda a limpeza ocorre antes das
+    transformacoes, agregacoes e graficos.
+    """
+    print("=" * 60)
+    print(" SALESINSIGHT PY - Analise de Dados de Vendas")
+    print("=" * 60)
+
+    # Etapa 0 - garantir a existencia do dataset
+    if not os.path.exists("vendas.csv"):
+        gerar_dataset_vendas().to_csv("vendas.csv", index=False)
+        print("\n[OK] Dataset 'vendas.csv' gerado.")
+
+    # Etapas 1 a 6 - fluxo pela classe
+    analisador = AnalisadorDeVendas()
+    analisador.carregar("vendas.csv")
+    inspecionar_dados(analisador.df_bruto)
+    analisador.transformar()
+    analisador.analisar()
+    analisador.visualizar()
+    analisador.resumo()
+
+    print("\n[CONCLUIDO] Fluxo finalizado com sucesso.")
+
+
+if __name__ == "__main__":
+    main()
