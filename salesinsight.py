@@ -214,3 +214,48 @@ def tratar_dados(df):
         print(f"{chave}: {valor}")
 
     return df_limpo, relatorio
+
+
+# ---------------------------------------------------------------------------
+# RF04 - Criar Colunas Derivadas com Transformacoes Condicionais
+# ---------------------------------------------------------------------------
+def criar_colunas_derivadas(df):
+    """Enriquece o dataset limpo com colunas derivadas da data e da receita.
+
+    Colunas criadas:
+        receita_total: quantidade x preco_unitario (operacao vetorizada);
+        mes, ano: extraidos de data_venda via .dt.month / .dt.year;
+        mes_nome: nome do mes em portugues (dicionario MESES_PT);
+        trimestre: trimestre no formato Q1-Q4, via .dt.quarter;
+        faixa_receita_item: classificacao condicional vetorizada da
+            receita da linha (Baixo / Medio / Alto Valor).
+
+    Args:
+        df (pandas.DataFrame): dataset ja tratado por tratar_dados().
+
+    Returns:
+        pandas.DataFrame: copia do DataFrame de entrada acrescida das
+        colunas derivadas descritas acima.
+    """
+    df = df.copy()
+
+    df["receita_total"] = df["quantidade"] * df["preco_unitario"]
+    df["mes"] = df["data_venda"].dt.month
+    df["mes_nome"] = df["mes"].map(MESES_PT)
+    df["trimestre"] = "Q" + df["data_venda"].dt.quarter.astype(str)
+    df["ano"] = df["data_venda"].dt.year
+
+    # transformacao condicional vetorizada (equivalente a um if/elif/else
+    # aplicado linha a linha, porem sem necessidade de laco explicito)
+    condicoes = [
+        df["receita_total"] < 500,
+        (df["receita_total"] >= 500) & (df["receita_total"] < 5000),
+        df["receita_total"] >= 5000,
+    ]
+    faixas = ["Baixo Valor", "Medio Valor", "Alto Valor"]
+
+    df["faixa_receita_item"] = "Nao Classificado"
+    for condicao, faixa in zip(condicoes, faixas):
+        df.loc[condicao, "faixa_receita_item"] = faixa
+
+    return df
