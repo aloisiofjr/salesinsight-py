@@ -330,3 +330,42 @@ def calcular_metricas(df):
     print(por_regiao)
 
     return metricas
+
+
+# ---------------------------------------------------------------------------
+# RF06 - Segmentar Clientes por Nivel de Gasto
+# ---------------------------------------------------------------------------
+def segmentar_clientes(df):
+    """Segmenta os clientes por faixa de gasto acumulado.
+
+    Regra de classificacao (aplicada via funcao lambda com .apply()):
+        Bronze: total_gasto abaixo de R$ 5.000,00;
+        Prata: total_gasto entre R$ 5.000,00 e R$ 15.000,00;
+        Ouro: total_gasto acima de R$ 15.000,00.
+
+    Args:
+        df (pandas.DataFrame): dataset com a coluna receita_total.
+
+    Returns:
+        pandas.DataFrame: colunas cliente, total_gasto e segmento,
+        ordenado do maior para o menor gasto.
+    """
+    clientes = (
+        df.groupby("cliente")["receita_total"]
+        .sum()
+        .reset_index()
+        .rename(columns={"receita_total": "total_gasto"})
+    )
+
+    classificar_segmento = lambda gasto: (
+        "Ouro" if gasto > 15000 else "Prata" if gasto >= 5000 else "Bronze"
+    )
+    clientes["segmento"] = clientes["total_gasto"].apply(classificar_segmento)
+    clientes = clientes.sort_values("total_gasto", ascending=False).reset_index(drop=True)
+
+    print("\n=== TOP 10 CLIENTES ===")
+    print(clientes.head(10))
+    print("\n=== DISTRIBUICAO POR SEGMENTO ===")
+    print(clientes["segmento"].value_counts())
+
+    return clientes
