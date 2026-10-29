@@ -116,3 +116,101 @@ def gerar_dataset_vendas(n_registros=200, seed=42):
         })
 
     return pd.DataFrame(dados)
+
+
+# ---------------------------------------------------------------------------
+# RF02 - Inspecionar e Descrever os Dados
+# ---------------------------------------------------------------------------
+def inspecionar_dados(df):
+    """Descreve a estrutura do DataFrame bruto, sem interpretar estatisticas.
+
+    Exibe no console o formato, as colunas, os tipos de dados, a contagem
+    de valores nulos por coluna e os primeiros registros - o objetivo e
+    puramente estrutural (a leitura estatistica fica para a Semana 12).
+
+    Args:
+        df (pandas.DataFrame): dataset bruto, recem carregado do CSV.
+
+    Returns:
+        pandas.DataFrame: o mesmo DataFrame recebido, sem alteracoes
+        (retornado apenas para permitir encadeamento de chamadas).
+    """
+    print("\n=== INSPECAO INICIAL DO DATASET ===")
+    print(f"Shape: {df.shape}")
+    print(f"\nColunas: {list(df.columns)}")
+    print(f"\nTipos de dados:\n{df.dtypes}")
+    print(f"\nValores nulos por coluna:\n{df.isnull().sum()}")
+    print(f"\nPrimeiros registros:\n{df.head()}")
+    return df
+
+
+# ---------------------------------------------------------------------------
+# RF03 - Tratar os Dados (datetime)
+# ---------------------------------------------------------------------------
+def tratar_dados(df):
+    """Padroniza o texto, converte tipos e descarta registros invalidos.
+
+    Etapas aplicadas, nesta ordem:
+        1. remocao de espacos extras em todas as colunas de texto;
+        2. conversao de data_venda com pd.to_datetime(errors="coerce") e
+           remocao das linhas cuja data nao pode ser convertida;
+        3. conversao de quantidade para int e preco_unitario para float,
+           descartando valores que nao sejam numericos;
+        4. montagem de um relatorio de limpeza com as contagens de
+           registros iniciais, removidos e finais.
+
+    Nao sao aplicadas tecnicas de imputacao estatistica de nulos nem
+    tratamento de outliers: esses topicos pertencem as Semanas 09-11 e
+    estao fora do escopo deste mini-projeto.
+
+    Args:
+        df (pandas.DataFrame): dataset bruto (saida de gerar_dataset_vendas
+            ou de um pd.read_csv externo).
+
+    Returns:
+        tuple[pandas.DataFrame, dict]: o DataFrame limpo e um dicionario
+        com o relatorio de limpeza (registros_iniciais, removidos por
+        motivo e registros_finais).
+    """
+    df_limpo = df.copy()
+    registros_iniciais = len(df_limpo)
+
+    # 1. remover espacos extras nas colunas de texto
+    colunas_texto = df_limpo.select_dtypes(include="object").columns
+    for coluna in colunas_texto:
+        df_limpo[coluna] = df_limpo[coluna].str.strip()
+    # normalizacao adicional do nome do cliente via regex (espacos internos)
+    df_limpo["cliente"] = df_limpo["cliente"].apply(
+        lambda nome: re.sub(r"\s+", " ", nome).strip()
+    )
+
+    # 2. converter data_venda e descartar datas invalidas (viram NaT)
+    df_limpo["data_venda"] = pd.to_datetime(df_limpo["data_venda"], errors="coerce")
+    datas_invalidas = df_limpo["data_venda"].isna().sum()
+    df_limpo = df_limpo.dropna(subset=["data_venda"])
+
+    # 3. ajustar os tipos numericos (coercao + descarte de nao numericos)
+    df_limpo["quantidade"] = pd.to_numeric(df_limpo["quantidade"], errors="coerce")
+    df_limpo["preco_unitario"] = pd.to_numeric(df_limpo["preco_unitario"], errors="coerce")
+    valores_invalidos = df_limpo[["quantidade", "preco_unitario"]].isna().any(axis=1).sum()
+    df_limpo = df_limpo.dropna(subset=["quantidade", "preco_unitario"])
+
+    df_limpo["quantidade"] = df_limpo["quantidade"].astype(int)
+    df_limpo["preco_unitario"] = df_limpo["preco_unitario"].astype(float)
+
+    registros_finais = len(df_limpo)
+
+    # 4. montar e imprimir o relatorio de limpeza
+    relatorio = {
+        "registros_iniciais": registros_iniciais,
+        "removidos_data_invalida": int(datas_invalidas),
+        "removidos_valor_numerico_invalido": int(valores_invalidos),
+        "registros_inalterados": registros_finais,
+        "registros_finais": registros_finais,
+    }
+
+    print("\n=== RELATORIO DE LIMPEZA ===")
+    for chave, valor in relatorio.items():
+        print(f"{chave}: {valor}")
+
+    return df_limpo, relatorio
