@@ -369,3 +369,117 @@ def segmentar_clientes(df):
     print(clientes["segmento"].value_counts())
 
     return clientes
+
+
+# ---------------------------------------------------------------------------
+# RF07 - Criar Visualizacoes com Matplotlib
+# ---------------------------------------------------------------------------
+def gerar_graficos(df, metricas, pasta_graficos=PASTA_GRAFICOS):
+    """Gera e exporta em PNG as quatro figuras exigidas pelo desafio.
+
+    Figuras produzidas:
+        1. receita_por_mes.png  - linha, evolucao da receita no periodo;
+        2. top_produtos.png     - barra, top 5 produtos por receita;
+        3. quantidade_vs_receita.png - dispersao, colorida por categoria;
+        4. painel_resumo.png    - grade 2x2 combinando as tres visoes
+           acima mais a receita por regiao, com fig.suptitle().
+
+    Todas as figuras recebem titulo, rotulos de eixo, legenda (quando
+    aplicavel), paleta de cores definida explicitamente e sao exportadas
+    com plt.savefig(dpi=150), apos plt.tight_layout().
+
+    Args:
+        df (pandas.DataFrame): dataset tratado e enriquecido, usado no
+            grafico de dispersao.
+        metricas (dict[str, pandas.DataFrame]): saida de calcular_metricas(),
+            usada nos graficos de linha, barra e no painel de regiao.
+        pasta_graficos (str): diretorio de destino dos arquivos PNG.
+
+    Returns:
+        None.
+    """
+    os.makedirs(pasta_graficos, exist_ok=True)
+
+    sns.set_theme(style="whitegrid", palette="muted")
+    plt.rcParams["figure.figsize"] = (12, 6)
+    plt.rcParams["axes.titlesize"] = 14
+
+    por_mes = metricas["por_mes"]
+    top_produtos = metricas["top_produtos"]
+    por_regiao = metricas["por_regiao"]
+
+    # 1. Linha - receita por mes
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(por_mes["mes_nome"], por_mes["receita_total"],
+            marker="o", linewidth=2, color="#2E86AB")
+    ax.set_title("Receita Total por Mes")
+    ax.set_xlabel("Mes")
+    ax.set_ylabel("Receita Total (R$)")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(os.path.join(pasta_graficos, "receita_por_mes.png"), dpi=150)
+    plt.close()
+
+    # 2. Barra - top produtos
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.barplot(data=top_produtos, y="produto", x="receita_total",
+                hue="produto", legend=False, palette="Blues_d", ax=ax)
+    ax.set_title("Top 5 Produtos por Receita")
+    ax.set_xlabel("Receita Total (R$)")
+    ax.set_ylabel("Produto")
+    plt.tight_layout()
+    plt.savefig(os.path.join(pasta_graficos, "top_produtos.png"), dpi=150)
+    plt.close()
+
+    # 3. Dispersao - quantidade vs receita, colorido por categoria
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.scatterplot(data=df, x="quantidade", y="receita_total",
+                     hue="categoria", palette="deep", s=70, ax=ax)
+    ax.set_title("Quantidade vs Receita por Transacao")
+    ax.set_xlabel("Quantidade")
+    ax.set_ylabel("Receita Total (R$)")
+    ax.legend(title="Categoria")
+    plt.tight_layout()
+    plt.savefig(os.path.join(pasta_graficos, "quantidade_vs_receita.png"), dpi=150)
+    plt.close()
+
+    # 4. Painel resumo - subplots 2x2
+    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+
+    axes[0, 0].plot(por_mes["mes_nome"], por_mes["receita_total"],
+                     marker="o", linewidth=2, color="#2E86AB")
+    axes[0, 0].set_title("Receita por Mes")
+    axes[0, 0].set_xlabel("Mes")
+    axes[0, 0].set_ylabel("Receita Total (R$)")
+    axes[0, 0].tick_params(axis="x", rotation=45)
+
+    axes[0, 1].barh(top_produtos["produto"], top_produtos["receita_total"],
+                     color="#A23B72")
+    axes[0, 1].set_title("Top 5 Produtos")
+    axes[0, 1].set_xlabel("Receita Total (R$)")
+    axes[0, 1].invert_yaxis()
+
+    categorias = df["categoria"].unique()
+    cores = sns.color_palette("deep", len(categorias))
+    for categoria, cor in zip(categorias, cores):
+        subset = df[df["categoria"] == categoria]
+        axes[1, 0].scatter(subset["quantidade"], subset["receita_total"],
+                            label=categoria, color=cor, alpha=0.7)
+    axes[1, 0].set_title("Quantidade vs Receita")
+    axes[1, 0].set_xlabel("Quantidade")
+    axes[1, 0].set_ylabel("Receita Total (R$)")
+    axes[1, 0].legend(title="Categoria", fontsize=8)
+
+    axes[1, 1].bar(por_regiao["regiao"], por_regiao["receita_total"],
+                    color="#F18F01")
+    axes[1, 1].set_title("Receita por Regiao")
+    axes[1, 1].set_xlabel("Regiao")
+    axes[1, 1].set_ylabel("Receita Total (R$)")
+    axes[1, 1].tick_params(axis="x", rotation=30)
+
+    fig.suptitle("SalesInsight PY - Painel Resumo", fontsize=16)
+    plt.tight_layout()
+    plt.savefig(os.path.join(pasta_graficos, "painel_resumo.png"), dpi=150)
+    plt.close()
+
+    print(f"\n[OK] 4 graficos exportados em '{pasta_graficos}/'.")
