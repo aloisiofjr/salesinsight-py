@@ -259,3 +259,74 @@ def criar_colunas_derivadas(df):
         df.loc[condicao, "faixa_receita_item"] = faixa
 
     return df
+
+
+# ---------------------------------------------------------------------------
+# RF05 - Calcular Metricas Agregadas com groupby
+# ---------------------------------------------------------------------------
+def calcular_metricas(df):
+    """Calcula as metricas agregadas de negocio exigidas pelo desafio.
+
+    Sao calculadas quatro dimensoes de analise, cada uma via groupby +
+    agregacao, devolvidas em formato tabular (reset_index):
+        por_mes: receita, quantidade e numero de vendas por mes/ano;
+        top_produtos: receita total dos 5 produtos mais vendidos;
+        por_categoria: receita total por categoria de produto;
+        por_regiao: receita total e ticket medio por regiao.
+
+    Args:
+        df (pandas.DataFrame): dataset com as colunas derivadas (saida de
+            criar_colunas_derivadas()).
+
+    Returns:
+        dict[str, pandas.DataFrame]: dicionario com as chaves por_mes,
+        top_produtos, por_categoria e por_regiao.
+    """
+    metricas = {}
+
+    por_mes = (
+        df.groupby(["ano", "mes", "mes_nome"])
+        .agg(receita_total=("receita_total", "sum"),
+             quantidade=("quantidade", "sum"),
+             n_vendas=("id_venda", "count"))
+        .reset_index()
+        .sort_values(["ano", "mes"])
+    )
+    metricas["por_mes"] = por_mes
+
+    top_produtos = (
+        df.groupby("produto")["receita_total"]
+        .sum()
+        .reset_index()
+        .sort_values("receita_total", ascending=False)
+        .head(5)
+    )
+    metricas["top_produtos"] = top_produtos
+
+    por_categoria = (
+        df.groupby("categoria")["receita_total"]
+        .sum()
+        .reset_index()
+        .sort_values("receita_total", ascending=False)
+    )
+    metricas["por_categoria"] = por_categoria
+
+    por_regiao = (
+        df.groupby("regiao")
+        .agg(receita_total=("receita_total", "sum"),
+             ticket_medio=("receita_total", "mean"))
+        .reset_index()
+        .sort_values("receita_total", ascending=False)
+    )
+    metricas["por_regiao"] = por_regiao
+
+    print("\n=== POR MES ===")
+    print(por_mes)
+    print("\n=== TOP PRODUTOS ===")
+    print(top_produtos)
+    print("\n=== POR CATEGORIA ===")
+    print(por_categoria)
+    print("\n=== POR REGIAO ===")
+    print(por_regiao)
+
+    return metricas
