@@ -483,3 +483,70 @@ def gerar_graficos(df, metricas, pasta_graficos=PASTA_GRAFICOS):
     plt.close()
 
     print(f"\n[OK] 4 graficos exportados em '{pasta_graficos}/'.")
+
+
+# ---------------------------------------------------------------------------
+# RF08 - Organizar o Codigo em Funcoes Reutilizaveis (funcao de ordem superior)
+# ---------------------------------------------------------------------------
+def processar_coluna(df, coluna, funcao_transformacao, nome_saida=None):
+    """Aplica uma funcao de transformacao arbitraria a uma coluna do DataFrame.
+
+    Funcao de ordem superior: recebe outra funcao (funcao_transformacao)
+    como argumento e a aplica via .apply(), demonstrando o conceito
+    estudado na Semana 05. E reutilizada na classe AnalisadorDeVendas com
+    duas funcoes lambda em contextos distintos.
+
+    Args:
+        df (pandas.DataFrame): DataFrame de entrada.
+        coluna (str): nome da coluna a transformar.
+        funcao_transformacao (Callable): funcao de um argumento aplicada
+            a cada valor da coluna.
+        nome_saida (str, opcional): nome da coluna resultante. Quando
+            omitido, usa "{coluna}_transformado".
+
+    Returns:
+        pandas.DataFrame: copia do DataFrame de entrada com a nova coluna.
+    """
+    df = df.copy()
+    nome_saida = nome_saida or f"{coluna}_transformado"
+    df[nome_saida] = df[coluna].apply(funcao_transformacao)
+    return df
+
+
+# ---------------------------------------------------------------------------
+# RF09 - Exportar Resultados em CSV e JSON
+# ---------------------------------------------------------------------------
+def exportar_resultados(metricas, clientes, estatisticas, pasta=PASTA_OUTPUTS):
+    """Exporta os principais resultados do projeto em CSV e JSON.
+
+    Grava metricas_por_mes.csv, segmentacao_clientes.csv e
+    estatisticas_gerais.json e, em seguida, le o JSON de volta com
+    json.load() para comprovar que a escrita foi bem-sucedida.
+
+    Args:
+        metricas (dict[str, pandas.DataFrame]): saida de calcular_metricas().
+        clientes (pandas.DataFrame): saida de segmentar_clientes().
+        estatisticas (dict): estatisticas gerais do dataset (receita total,
+            ticket medio, quantidade total e numero de vendas).
+        pasta (str): diretorio de destino dos arquivos exportados.
+
+    Returns:
+        None.
+    """
+    os.makedirs(pasta, exist_ok=True)
+
+    metricas["por_mes"].to_csv(os.path.join(pasta, "metricas_por_mes.csv"),
+                                index=False, encoding="utf-8-sig")
+    clientes.to_csv(os.path.join(pasta, "segmentacao_clientes.csv"),
+                     index=False, encoding="utf-8-sig")
+
+    serializavel = {k: round(float(v), 2) for k, v in estatisticas.items()}
+    caminho = os.path.join(pasta, "estatisticas_gerais.json")
+    with open(caminho, "w", encoding="utf-8") as f:
+        json.dump(serializavel, f, indent=4, ensure_ascii=False)
+
+    # leitura de volta para confirmar a escrita
+    with open(caminho, "r", encoding="utf-8") as f:
+        conferencia = json.load(f)
+    print(f"\n[OK] Resultados exportados em '{pasta}/'.")
+    print(f"JSON gravado e lido: {conferencia}")
