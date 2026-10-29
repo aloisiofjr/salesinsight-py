@@ -53,3 +53,66 @@ MESES_PT = {
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
 }
+
+
+# ---------------------------------------------------------------------------
+# RF01 - Criar ou Carregar o Dataset de Vendas
+# ---------------------------------------------------------------------------
+def gerar_dataset_vendas(n_registros=200, seed=42):
+    """Gera sinteticamente o dataset bruto de vendas utilizado no estudo.
+
+    O gerador introduz, propositalmente, duas inconsistencias tipicas de
+    bases de dados reais - datas invalidas e espacos extras no nome do
+    cliente - que servem de materia-prima para a etapa de limpeza (RF03).
+
+    Args:
+        n_registros (int): quantidade de registros de venda a gerar.
+        seed (int): semente do gerador aleatorio, garante reprodutibilidade.
+
+    Returns:
+        pandas.DataFrame: dataset bruto, ainda sem tratamento, com as
+        colunas id_venda, data_venda, cliente, produto, categoria, regiao,
+        quantidade e preco_unitario.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+
+    produtos = ["Notebook", "Smartphone", "Tablet", "Monitor",
+                "Teclado", "Mouse", "Headset"]
+    categorias = {"Notebook": "Computadores", "Smartphone": "Celulares",
+                  "Tablet": "Celulares", "Monitor": "Computadores",
+                  "Teclado": "Perifericos", "Mouse": "Perifericos",
+                  "Headset": "Perifericos"}
+    precos = {"Notebook": 3500, "Smartphone": 2200, "Tablet": 1800,
+              "Monitor": 1200, "Teclado": 250, "Mouse": 120,
+              "Headset": 350}
+    regioes = ["Sudeste", "Sul", "Nordeste", "Centro-Oeste", "Norte"]
+
+    data_inicio = datetime(2025, 1, 1)
+    dados = []
+
+    for i in range(n_registros):
+        produto = random.choice(produtos)
+        categoria = categorias[produto]
+        quantidade = random.randint(1, 10)
+        preco = round(precos[produto] * random.uniform(0.85, 1.15), 2)
+        data = data_inicio + timedelta(days=random.randint(0, 364))
+        data_txt = data.strftime("%Y-%m-%d")
+        cliente = f"  Cliente_{random.randint(1, 50):03d}  "
+
+        # --- sujeira proposital para a etapa de limpeza ---
+        if random.random() < 0.03:
+            data_txt = "DATA INVALIDA"
+
+        dados.append({
+            "id_venda": i + 1,
+            "data_venda": data_txt,
+            "cliente": cliente,
+            "produto": produto,
+            "categoria": categoria,
+            "regiao": random.choice(regioes),
+            "quantidade": quantidade,
+            "preco_unitario": preco,
+        })
+
+    return pd.DataFrame(dados)
